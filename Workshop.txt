@@ -1,0 +1,24 @@
+version=1
+id=2286124931
+title=Combat Text (IWBUMS B41)
+description=Show damage dealt above zombie heads
+description=
+description=Fire damage is accumulated and shown each 5 in-game seconds otherwise it show extreme small numbers (fire damage is added each in-game tick). Other damage types are show as soon as they are detected
+description=
+description=[i]This mod is supposed to provide simple quality of life improvement to show how much damage is dealt after hit[/i]
+description=
+description=[b]Older versions[/b]: can be found on [url=https://github.com/Rezistor-lab/CombatText/releases]github[/url]
+description=
+description=[b]Known issues:[/b]
+description=[list]
+description=[*] killing blow when zombie is on ground is not shown (11/20/2020 fixed)
+description=[/list]
+description=
+description=[b]Future plans:[/b]
+description=[list]
+description=[*] add health bar above zombie head (11/20/2020 done)
+description=[*] add mod settings
+description=[*] add scrolling effect to numbers (11/20/2020 done)
+description=[/list]
+tags=Combat, B41
+visibility=public
