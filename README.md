@@ -9,9 +9,9 @@ _This mod is supposed to provide simple quality of life improvement to show how 
 Steam workshop page can be found [here](https://steamcommunity.com/sharedfiles/filedetails/?id=2286124931)
 
 **Known issues:**
-  * killing blow when zombie is on ground is not shown (11/16/2020 working on it)
+  * killing blow when zombie is on ground is not shown (11/20/2020 fixed)
 
 **Future plans:**
-  * add health bar above zombie head (in-progress)
+  * add health bar above zombie head (11/20/2020 done)
   * add mod settings
-  * add scrolling effect to numbers
+  * add scrolling effect to numbers (11/20/2020 done)
