@@ -136,7 +136,7 @@ function ISHealthBar:targetDead()
 end
 
 function ISHealthBar:isValid(attacker, playerIndex)
-	return playerIndex == self.playerIndex and target:getUID() == self.UID and self.active == true;
+	return playerIndex == self.playerIndex and CombatText.Fn.getEntityId(target) == self.UID and self.active == true;
 end
 
 function ISHealthBar:new(target, playerIndex)
@@ -157,7 +157,7 @@ function ISHealthBar:new(target, playerIndex)
 	-- essentials
 	o.playerIndex = playerIndex;
 	o.active = true;
-	o.UID = target:getUID();
+	o.UID = CombatText.Fn.getEntityId(target);
 	o.debug = getPlayer():isGodMod()
 	
 	-- local copy
@@ -167,7 +167,7 @@ function ISHealthBar:new(target, playerIndex)
 	-- defaults
 	
 	o.hpLoss = 0;
-	o.visibleByPlayer = target:isTargetVisible();
+	o.visibleByPlayer = CombatText.Fn.getTargetAlpha(target, playerIndex) > 0;
 	o.hpWidth = width;
 	o.target = target;
 	o.maxHp = target:getHealth();

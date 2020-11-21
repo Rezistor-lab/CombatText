@@ -1,4 +1,5 @@
 CombatText = {
+	gameVersion = getCore():getVersionNumber(),
 	Fn = {
 		measureStringX = function(font, text) return getTextManager():MeasureStringX(font, text) end,
 		measureStringY = function(font, text) return getTextManager():MeasureStringY(font, text) end
@@ -46,3 +47,17 @@ CombatText = {
 		RgbOnFire = {r=0.8D, g=0.55D, b=0.0D, a=1.0D},
 	}
 }
+
+CombatText.Fn.getEntityId = function(entity)
+	if luautils.stringStarts(CombatText.gameVersion, "40") then return entity:getID()
+	elseif luautils.stringStarts(CombatText.gameVersion, "41") then return entity:getUID()
+	end
+end
+
+CombatText.Fn.getTargetAlpha = function(entity, playerIndex)
+	if entity == nil then return 0 end
+
+	if luautils.stringStarts(CombatText.gameVersion, "40") then return entity:getTargetAlpha()
+	elseif luautils.stringStarts(CombatText.gameVersion, "41") then return entity:getTargetAlpha(playerIndex)
+	end
+end
