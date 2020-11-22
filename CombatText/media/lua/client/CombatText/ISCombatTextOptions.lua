@@ -19,18 +19,7 @@ end
 function ISCombatTextOptions:setVisible(visible)
 	self.javaObject(visible);
 end
-
-function ISCombatTextOptions:render()
-	self:drawTextCentre(self.text, self.centerX, self.centerY, 1,1,1,1, self.font)
-	
-	if self.tooltip.show then
-		self:drawRect(self.tooltip.box.x, self.tooltip.box.y, self.tooltip.box.width, self.tooltip.box.height, self.tooltip.backgroundColor.a, self.tooltip.backgroundColor.r, self.tooltip.backgroundColor.g, self.tooltip.backgroundColor.b)
-		self:drawRectBorder(self.tooltip.box.x, self.tooltip.box.y, self.tooltip.box.width, self.tooltip.box.height, self.tooltip.borderColor.a, self.tooltip.borderColor.r, self.tooltip.borderColor.g, self.tooltip.borderColor.b)
-		self:drawText(self.tooltip.text, self.tooltip.x, self.tooltip.y, self.tooltip.color.r, self.tooltip.color.g, self.tooltip.color.b, self.tooltip.color.a, self.tooltip.font)
-	
-	end
-end
-
+ 
 function ISCombatTextOptions:onMouseMove(dx, dy)
 	self.tooltip.show = true;
 end

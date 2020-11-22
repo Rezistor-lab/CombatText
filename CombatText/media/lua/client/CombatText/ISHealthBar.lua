@@ -31,6 +31,14 @@ function ISHealthBar:getScreenHeight(zoom)
 	end
 end
 
+function ISHealthBar:getFontZoom(zoom)
+	if zoom > 1.5 then 
+		return 1 / (zoom-0.5);
+	else
+		return 1
+	end
+end
+
 function calculateLossStep(loss)
 	if loss < 0.05 then return 0.03
 	elseif loss < 0.15 then return 0.07
@@ -44,31 +52,28 @@ function ISHealthBar:render()
 		zoom = getCore():getZoom(self.playerIndex)
 		width = self:getScreenWidth(zoom)
 		height = self:getScreenHeight(zoom)
-		
-		fontZoom = zoom--????
+		minusWidthHalf = (-width/2)
+		widthPlusPadding = width+(self.padding*2)
+		heightPlusPadding = height+(self.padding*2)
 		
 		x = self:getScreenX(self.target, zoom)
 		y = self:getScreenY(self.target, zoom)
 		self:setX(x)
 		self:setY(y)
-		self:setWidth(width)
-		self:setHeight(height)
 		
 		nowHpWidth = (self.currentHp / self.maxHp) * width
 		
-		currentTotalHpHeightOffset = -CombatText.FontHeights.Small-2
-		if CombatText.HealthBar.Visible then 
-			currentTotalHpHeightOffset = currentTotalHpHeightOffset -(height/2)
-		end
-		
 		if CombatText.CurrentTotalHp.Visible then
-			self:drawTextZoomed(self.hpText, -((CombatText.Fn.measureStringX(UIFont.Small, self.hpText)*fontZoom)/2), currentTotalHpHeightOffset, 1/fontZoom, CombatText.CurrentTotalHp.Color.r, CombatText.CurrentTotalHp.Color.g, CombatText.CurrentTotalHp.Color.b, CombatText.CurrentTotalHp.Color.a, UIFont.Small)
+			fontZoom = self:getFontZoom(zoom)
+			txtWidth = self.hpTextWidth*fontZoom;
+			txtLeft = -txtWidth/2
+			txtTop = self.hpTextHeight*fontZoom;
 		end
-		
+
 		if CombatText.HealthBar.Visible then 
-			self:drawRect((-width/2) -self.padding, -self.padding, width+(self.padding*2), height+(self.padding*2), self.colors.Background.a, self.colors.Background.r, self.colors.Background.g, self.colors.Background.b)
-			self:drawRectBorder((-width/2) -self.padding, -self.padding, width+(self.padding*2), height+(self.padding*2), self.colors.Border.a, self.colors.Border.r, self.colors.Border.g, self.colors.Border.b)
-			self:drawRect((-width/2), 0, nowHpWidth, height, self.colors.CurrentHealth.a, self.colors.CurrentHealth.r, self.colors.CurrentHealth.g, self.colors.CurrentHealth.b)
+			self:drawRect(minusWidthHalf -self.padding, -self.padding, widthPlusPadding, heightPlusPadding, self.colors.Background.a, self.colors.Background.r, self.colors.Background.g, self.colors.Background.b)
+			self:drawRectBorder(minusWidthHalf -self.padding, -self.padding, widthPlusPadding, heightPlusPadding, self.colors.Border.a, self.colors.Border.r, self.colors.Border.g, self.colors.Border.b)
+			self:drawRect(minusWidthHalf, 0, nowHpWidth, height, self.colors.CurrentHealth.a, self.colors.CurrentHealth.r, self.colors.CurrentHealth.g, self.colors.CurrentHealth.b)
 			if self.isLoosingHp then
 				stampNow = getTimeInMillis();
 				frameDiff = self.maxHp * calculateLossStep(self.hpLoss) * ((stampNow - self.hpLossStart)/CombatText.HealthBar.LoosingHpTick)
@@ -79,10 +84,42 @@ function ISHealthBar:render()
 					self:resetHpLoss()
 				else
 					loosingHpWidth = ((self.hpLoss / self.maxHp) * width)
-					self:drawRect((-width/2)+nowHpWidth, 0, loosingHpWidth, height, self.colors.LoosingHealth.a, self.colors.LoosingHealth.r, self.colors.LoosingHealth.g, self.colors.LoosingHealth.b)
+					self:drawRect(minusWidthHalf+nowHpWidth, 0, loosingHpWidth, height, self.colors.LoosingHealth.a, self.colors.LoosingHealth.r, self.colors.LoosingHealth.g, self.colors.LoosingHealth.b)
 				end
 			end
 		end
+		
+		if CombatText.CurrentTotalHp.Visible then
+			if CombatText.CurrentTotalHp.Position == "out-right" then
+				txtLeft = (width/2)+self.padding+2;
+				txtTop = -(txtTop/2)+self.padding
+			elseif CombatText.CurrentTotalHp.Position == "out-left" then
+				txtLeft = minusWidthHalf-txtWidth-self.padding-2;
+				txtTop = -(txtTop/2)+self.padding
+			elseif CombatText.CurrentTotalHp.Position == "out-bottom" then
+				txtTop = height/2 + self.padding+2
+			elseif CombatText.CurrentTotalHp.Position == "out-top-left" then
+				txtTop = -txtTop-self.padding
+				txtLeft = minusWidthHalf+self.padding;
+			elseif CombatText.CurrentTotalHp.Position == "out-top-right" then
+				txtTop = -txtTop-self.padding
+				txtLeft = (width/2)-txtWidth-self.padding;
+			elseif CombatText.CurrentTotalHp.Position == "out-bottom-left" then
+				txtTop = height/2 + self.padding+2
+				txtLeft = minusWidthHalf+self.padding;
+			elseif CombatText.CurrentTotalHp.Position == "out-bottom-right" then
+				txtTop = height/2 + self.padding+2
+				txtLeft = (width/2)-txtWidth-self.padding;
+			else
+				txtTop = -txtTop -self.padding
+			end
+			
+			self:drawTextZoomed(self.hpText, txtLeft, txtTop, fontZoom, CombatText.CurrentTotalHp.Color.r, CombatText.CurrentTotalHp.Color.g, CombatText.CurrentTotalHp.Color.b, CombatText.CurrentTotalHp.Color.a, self.hpTextFont)
+		end
+		
+		-- self:drawLine2(x-5, y-5, x+5, y+5, 1,1,1,1)
+		-- self:drawLine2(x-5, y+5, x+5, y-5, 1,1,1,1)
+		
 	end
 end
 
@@ -112,6 +149,8 @@ function ISHealthBar:SetHp(hp)
 			end
 			self.currentHp = Math.max(0, hp);
 			self.hpText = tostring(luautils.round(self.currentHp*100.0F,0))..'/'..tostring(luautils.round(self.maxHp*100.0F,0))
+			self.hpTextWidth = CombatText.Fn.measureStringX(self.hpTextFont, self.hpText);
+			self.hpTextHeight = CombatText.Fn.measureStringY(self.hpTextFont, self.hpText)
 		end
 	end
 end
@@ -141,6 +180,7 @@ end
 
 function ISHealthBar:new(target, playerIndex)
 	zoom = getCore():getZoom(playerIndex)
+	
 	width = self:getScreenWidth(zoom)
 	height = self:getScreenHeight(zoom)
 	x = self:getScreenX(target, zoom)
@@ -174,6 +214,10 @@ function ISHealthBar:new(target, playerIndex)
 	o.currentHp = o.maxHp
 	o.minHp = 0;
 	o.hpText = tostring(luautils.round(o.currentHp*100.0F,0))..'/'..tostring(luautils.round(o.maxHp*100.0F,0))
-	
+	o.hpTextFont = UIFont.FromString(CombatText.CurrentTotalHp.Font)
+	o.hpFontHeight = CombatText.FontHeights[CombatText.CurrentTotalHp.Font]
+	o.hpTextWidth = CombatText.Fn.measureStringX(o.hpTextFont, o.hpText);
+	o.hpTextHeight = CombatText.Fn.measureStringY(o.hpTextFont, o.hpText)
+			
     return o;
 end
