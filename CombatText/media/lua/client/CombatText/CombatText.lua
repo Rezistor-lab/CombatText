@@ -4,8 +4,10 @@ require ("ISHealthBar.lua")
 require ("ISFloatingDmg.lua")
 require ("luautils.lua")
 
+local float_val = Float.valueOf
+
 --- get in-game timestamp in miliseconds
-function getGameTimestamp()
+local function getGameTimestamp()
 	return getGameTime():getCalender():getTimeInMillis()
 end
 
@@ -14,13 +16,13 @@ end
 -- @y1 Y position - first point
 -- @x2 X position - second point
 -- @y2 Y position - second point
-function distanceTo(x1,y1,x2,y2)
-	return Float.valueOf(Math.sqrt(Math.pow((x2 - x1), 2.0D) + Math.pow((y2 - y1), 2.0D)))
+local function distanceTo(x1,y1,x2,y2)
+	return float_val(Math.sqrt(Math.pow((x2 - x1), 2.0D) + Math.pow((y2 - y1), 2.0D)))
 end
 
 --- check if attack was critical hit (always false in case of B40)
 -- @entity attacker
-function isCriticalHit(entity)
+local function isCriticalHit(entity)
 	if luautils.stringStarts(CombatText.gameVersion, "40") then return false
 	elseif luautils.stringStarts(CombatText.gameVersion, "41") then return entity:isCriticalHit()
 	end
@@ -42,7 +44,7 @@ function removeAll(uid, isDead)
 end
 
 --- get string representation of damage
-function damageDiff(currentHp, previousHp)
+local function damageDiff(currentHp, previousHp)
 	delta = (currentHp - previousHp)*100.0F
 	diff = ""
 	
@@ -62,7 +64,7 @@ function damageDiff(currentHp, previousHp)
 end
 
 --- select correct color for health change
-function getDamageColor(currentHp, previousHp, isOnFire, isCrit)
+local function getDamageColor(currentHp, previousHp, isOnFire, isCrit)
 	if isOnFire then
 		return CombatText.FloatingDamage.RgbOnFire
 	end
@@ -78,17 +80,19 @@ end
 -- @target entity which should have healh bar above head
 -- @attacker entity which attacked (only player number is used)
 function solveHealthBar(target, attacker)
-	uid = CombatText.Fn.getEntityId(target)
-	if CombatText.HealthBar.Visible or CombatText.CurrentTotalHp.Visible then
-		if CombatTextCache.BarInstances[uid] ~= nil and CombatTextCache.BarInstances[uid]:isValid(target, attacker:getPlayerNum()) ~= true then
-			CombatTextCache.BarInstances[uid]:remove()
-			CombatTextCache.BarInstances[uid] = nil
-		end
+	if target ~= nil then 
+		uid = CombatText.Fn.getEntityId(target)
+		if CombatText.HealthBar.Visible or CombatText.CurrentTotalHp.Visible then
+			if CombatTextCache.BarInstances[uid] ~= nil and CombatTextCache.BarInstances[uid]:isValid(target, attacker:getPlayerNum()) ~= true then
+				CombatTextCache.BarInstances[uid]:remove()
+				CombatTextCache.BarInstances[uid] = nil
+			end
 
-		if CombatTextCache.BarInstances[uid] == nil then
-			CombatTextCache.BarInstances[uid] = ISHealthBar:new(target, attacker:getPlayerNum());
-			CombatTextCache.BarInstances[uid]:initialize();
-			CombatTextCache.BarInstances[uid]:addToUIManager();
+			if CombatTextCache.BarInstances[uid] == nil then
+				CombatTextCache.BarInstances[uid] = ISHealthBar:new(target, attacker:getPlayerNum());
+				CombatTextCache.BarInstances[uid]:initialize();
+				CombatTextCache.BarInstances[uid]:addToUIManager();
+			end
 		end
 	end
 end
@@ -118,36 +122,39 @@ end
 
 --IsoZombie zombie
 function onZombieUpdate(zombie)
-	uid = CombatText.Fn.getEntityId(zombie)
-	if zombie:isOnFire() then
-		if CombatTextCache.TrackingList[uid] == nil then
-			CombatTextCache.TrackingList[uid] = { ["hp"] = zombie:getHealth(), ["entity"] = zombie, ["isOnFire"] = true, ["tick"]=getGameTimestamp() }
+	if zombie ~= nil then 	
+		uid = CombatText.Fn.getEntityId(zombie)
+		if zombie:isOnFire() then
+			if CombatTextCache.TrackingList[uid] == nil then
+				CombatTextCache.TrackingList[uid] = { ["hp"] = zombie:getHealth(), ["entity"] = zombie, ["isOnFire"] = true, ["tick"]=getGameTimestamp() }
+			elseif CombatTextCache.TrackingList[uid].isOnFire ~= true then
+				CombatTextCache.TrackingList[uid].isOnFire = true
+			end
 			solveHealthBar(zombie, getPlayer())
-		elseif CombatTextCache.TrackingList[uid].isOnFire ~= true then
-			CombatTextCache.TrackingList[uid].isOnFire = true
+		elseif CombatTextCache.TrackingList[uid] ~= nil and CombatTextCache.TrackingList[uid].isOnFire == true then
+			CombatTextCache.TrackingList[uid].isOnFire = false
 		end
-	elseif CombatTextCache.TrackingList[uid] ~= nil and CombatTextCache.TrackingList[uid].isOnFire == true then
-		CombatTextCache.TrackingList[uid].isOnFire = false
 	end
 end
 
 --IsoPlayer player
 function onPlayerUpdate(player)
 	local tick = getGameTimestamp()
-	playerX = player:getX()
-	playerY = player:getY()
+	local playerX = player:getX()
+	local playerY = player:getY()
+	
 	for uid, itm in pairs(CombatTextCache.TrackingList) do 
 		if itm ~= nil then
 			if ((itm.isOnFire and itm.tick + CombatText.FloatingDamage.FireDmgUpdate < tick) or itm.isOnFire == false or itm.entity:isDead()) then
-				hpNow = itm.entity:getHealth()
+				local hpNow = itm.entity:getHealth()
 				if hpNow ~= itm.hp then
 					if hpNow < 0 then
 						hpNow = 0
 					end
 				
 					local diff = damageDiff(hpNow, itm.hp)
-					wasCrit = itm.isCrit ~= nil and itm.isCrit == true;
-					color = getDamageColor(hpNow, itm.hp, itm.isOnFire and itm.weapon == nil, wasCrit)
+					local wasCrit = itm.isCrit ~= nil and itm.isCrit == true;
+					local color = getDamageColor(hpNow, itm.hp, itm.isOnFire and itm.weapon == nil, wasCrit)
 					
 					-- abandoned => chatElement will keep text in buffer after entity die and show it when entity is revived/reused
 					-- params:text|R|G|B|font|?messageRadius?|messageType|allowBBcode|allowImages|allowChatIcons|allowColors|allowFonts|equalizeLineHeights
@@ -159,7 +166,7 @@ function onPlayerUpdate(player)
 					if (CombatText.HealthBar.Visible or CombatText.CurrentTotalHp.Visible) and CombatTextCache.BarInstances[uid] ~= nil then
 						CombatTextCache.BarInstances[uid]:SetHp(hpNow)
 					end
-					if CombatText.FloatingDamage.Visible and (CombatText.Fn.getTargetAlpha(itm.entity, player:getPlayerNum()) > 0 or player:isGodMod()) then
+					if CombatText.FloatingDamage.Visible and (CombatText.Fn.getAlpha(itm.entity, player:getPlayerNum()) > 0 or player:isGodMod()) then
 						local floatingDmg = ISFloatingDmg:new(itm.entity, diff, color, wasCrit, player:getPlayerNum())
 						floatingDmg:initialize();
 						floatingDmg:addToUIManager();
@@ -184,5 +191,5 @@ end
 
 Events.OnWeaponHitCharacter.Add(onHit) -- mark target for tracking and show health bar
 Events.OnZombieUpdate.Add(onZombieUpdate) -- serves mainly to detect zombies on fire
---Events.OnHitZombie.Add(onHitZombie)
+Events.OnHitZombie.Add(onHitZombie)
 Events.OnPlayerUpdate.Add(onPlayerUpdate) -- main logic processing happens here

@@ -16,16 +16,16 @@ function ISFloatingDmg:timeOffset() return (getTimeInMillis() - self.timestamp) 
 
 function ISFloatingDmg:render()
 	if self.active then
-		zoom = getCore():getZoom(self.playerIndex)
-		
-		x = self:getScreenX(self.originPos) / zoom
-		y = (self:getScreenY(self.originPos) - self:timeOffset()) / zoom
+		local zoom = getCore():getZoom(self.playerIndex)
+		local x = self:getScreenX(self.originPos) / zoom
+		local y = (self:getScreenY(self.originPos) - self:timeOffset()) / zoom
+		local playerAlpha = CombatText.Fn.getAlpha(self.target, self.playerIndex)
 		
 		self:setX(x)
 		self:setY(y)
 		
-		self:drawRect(-(self.textWidth/2)-1, -self.originPos.shiftY+2, self.textWidth+2, self.textHeight-2, self.bg.a, self.bg.r, self.bg.g, self.bg.b) 
-		self:drawText(self.text, -self.textWidth/2, -self.originPos.shiftY, self.color.r, self.color.g, self.color.b, self.color.a, self.font)
+		self:drawRect(-(self.textWidth/2)-1, -self.originPos.shiftY+2, self.textWidth+2, self.textHeight-2, self.bg.a*playerAlpha, self.bg.r, self.bg.g, self.bg.b) 
+		self:drawText(self.text, -(self.textWidth/2), -self.originPos.shiftY, self.color.r, self.color.g, self.color.b, self.color.a*playerAlpha, self.font)
 		
 		--self:drawLine2(x-5, y-5, x+5, y+5, 1,1,1,1)
 		--self:drawLine2(x-5, y+5, x+5, y-5, 1,1,1,1)
@@ -49,14 +49,14 @@ function ISFloatingDmg:new(target, dmg, color, wasCrit, playerIndex)
 		offsetX = target:getOffsetX(),
 		offsetY = target:getOffsetY(),
 		startY = CombatText.HealthBar.YOffset,
-		shiftY = CombatText.FontHeights[font]
+		shiftY = CombatText.Fn.fontHeight(font)
 	}
 	
 	if CombatText.HealthBar.Visible then
 		originPos.startY = originPos.startY + 2 + CombatText.HealthBar.Height;
 	end
 	if CombatText.CurrentTotalHp.Visible then
-		originPos.shiftY = originPos.shiftY + 2 + CombatText.FontHeights[CombatText.CurrentTotalHp.Font];
+		originPos.shiftY = originPos.shiftY + 2 + CombatText.Fn.fontHeight(CombatText.CurrentTotalHp.Font);
 	end
 
 	zoom = getCore():getZoom(playerIndex);
@@ -70,6 +70,7 @@ function ISFloatingDmg:new(target, dmg, color, wasCrit, playerIndex)
 
 	o.font = UIFont.FromString(font)
 	o.originPos = originPos;
+	o.target = target;
 	o.timestamp = getTimeInMillis();
 	o.ttl = CombatText.FloatingDamage.Ttl;
 	o.speed = CombatText.FloatingDamage.Speed;
