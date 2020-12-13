@@ -7,6 +7,14 @@ CombatText = {
 		getSettingsFileName = function() return 'CombatText\\settings.lua.cfg' end
 	},
 	defaultCfg = { HealthBar = {}, CurrentTotalHp = {}, FloatingDamage = {} },
+	["debug"] = {
+		base = false,
+		trackingData = false,
+		healthBar = false,
+		damage = false,
+		border = false,
+		playerLink = false
+	},
 	HealthBar = {
 		Visible = true,
 		Width = 75.0F,
@@ -151,7 +159,6 @@ CombatText.Fn.loadSettings = function()
 	CombatText.HealthBar = CombatText.Fn.mergeCfgData(CombatText.HealthBar, localCfgData.HealthBar);
 	CombatText.CurrentTotalHp = CombatText.Fn.mergeCfgData(CombatText.CurrentTotalHp, localCfgData.CurrentTotalHp);
 	CombatText.FloatingDamage = CombatText.Fn.mergeCfgData(CombatText.FloatingDamage, localCfgData.FloatingDamage);
-
 end
 
 function onGameBoot()
