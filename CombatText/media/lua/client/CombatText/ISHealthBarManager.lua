@@ -491,7 +491,7 @@ function ISHealthBarManager:render()
 		self.renderIdleTime = utils.getSystemTimestamp()
 	end
 	
-	--self:clearStencilRect();
+	self:clearStencilRect();
 end
 
 function ISHealthBarManager:onHit(uid, weapon, isCrit, trackingItm)
