@@ -559,14 +559,23 @@ function ISHealthBarManager:update()
 					
 					barItm.weapon = nil;
 					barItm.isCrit = nil;
+					
+					-- try to check remove condition for bar
+					if barItm.isDead or (itm.tick+CombatText.HealthBar.HideWhenInactive.noDamageFor < tick) then
+						removeAll(self, uid, barItm.isDead);
+					end
 				end
 				
-				itm.weapon=nil;
-				itm.isCrit=nil;
+				if itm ~= nil then
+					itm.weapon=nil;
+					itm.isCrit=nil;
 				
-				if barItm.isDead or (itm.tick+CombatText.HealthBar.HideWhenInactive.noDamageFor < tick) then
-					removeAll(self, uid, barItm.isDead);
+					-- second removal check
+					if itm.entity:isDead() or (itm.tick+CombatText.HealthBar.HideWhenInactive.noDamageFor < tick) then
+						removeAll(self, uid, itm.entity:isDead());
+					end
 				end
+				
 			end
 		end
 		
