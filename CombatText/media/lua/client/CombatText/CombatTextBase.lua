@@ -4,9 +4,8 @@ CombatText = {
 		measureStringX = function(font, text) return getTextManager():MeasureStringX(font, text) end,
 		measureStringY = function(font, text) return getTextManager():MeasureStringY(font, text) end,
 		fontHeight = function(fontStr) return getTextManager():getFontHeight(UIFont.FromString(fontStr)) end,
-		getSettingsFileName = function() return 'CombatText\\settings.lua.cfg' end
+		getSettingsFileName = function() return 'CombatText'..getFileSeparator()..'settings.lua.cfg' end
 	},
-	defaultCfg = { HealthBar = {}, CurrentTotalHp = {}, FloatingDamage = {} },
 	["debug"] = {
 		base = false,
 		trackingData = false,
@@ -38,7 +37,8 @@ CombatText = {
 		Visible = false,
 		Color = {r=1, g=1, b=1, a=1},
 		Font = "Small",
-		Position = "out-top-right" --[[
+		ShowBelowZoom = 1.5F,
+		Position = "out-top-right" --[[out-top-right
 			out-top | out-right | out-left | out-bottom
 			out-top-left | out-top-right
 			out-bottom-left | out-bottom-right
@@ -57,6 +57,8 @@ CombatText = {
 		Background = {r=0, g=0, b=0, a=0.2}
 	}
 }
+
+CombatTextDefault = { HealthBar = nil, CurrentTotalHp = nil, FloatingDamage = nil }
 
 CombatText.Fn.getEntityId = function(entity)
 	if entity == nil then return nil end
@@ -99,18 +101,31 @@ CombatText.Fn.mergeCfgData = function(currentData, localData)
 	return currentData
 end
 
+CombatText.Fn.copyCfgData = function(obj)
+	if type(obj) == 'table' then
+		local targetTbl = {};
+		for ck,cv in pairs(obj) do
+			targetTbl[ck] = CombatText.Fn.copyCfgData(cv);
+		end
+		--setmetatable(targetTbl, getmetatable(obj))
+		return targetTbl;
+	end
+
+	return obj;
+end
+
 --- recursive object write
 CombatText.Fn.writeObject = function(writer, key, value, isLast, spaces)
 	if type(value) == 'table' then
-		writer:writeln(spaces..key..'={')
-		local tblSize = countKeys(value)
+		writer:write(spaces..key..'={\n')
+		local tblSize = CombatText.Fn.countKeys(value)
 		local idx = 1
 		for tk,tv in pairs(value) do
 			CombatText.Fn.writeObject(writer, tk, tv, idx==tblSize, spaces..'\t')
 			idx = idx+1;
 		end
-		if isLast then writer:writeln(spaces..'}')
-		else writer:writeln(spaces..'},') end
+		if isLast then writer:write(spaces..'}\n')
+		else writer:write(spaces..'},\n') end
 	else
 		if value ~= nil then
 			writer:write(spaces..key..'=')
@@ -118,22 +133,21 @@ CombatText.Fn.writeObject = function(writer, key, value, isLast, spaces)
 			if vtype == 'string' then writer:write('\''..value..'\'')
 			else writer:write(tostring(value)) end
 			if isLast == false then writer:write(',') end
-			writer:writeln('')
+			writer:write('\n')
 		end
 	end
 end
-
 
 CombatText.Fn.saveSettings = function()
 	--FileOutputStream getFileWriter([string] filename, [bool] createIfNotExists, [bool] append)
 	local writer = getFileWriter(CombatText.Fn.getSettingsFileName(), true, false)
 	
 	-- simplest was is to store config and prepare it to be called as function
-	writer:writeln('CombatTextOptions={}')
+	writer:write('CombatTextOptions={}\n')
 	CombatText.Fn.writeObject(writer, 'CombatTextOptions.HealthBar', CombatText.HealthBar, true, '')
 	CombatText.Fn.writeObject(writer, 'CombatTextOptions.CurrentTotalHp', CombatText.CurrentTotalHp, true, '')
 	CombatText.Fn.writeObject(writer, 'CombatTextOptions.FloatingDamage', CombatText.FloatingDamage, true, '')
-	writer:writeln('return CombatTextOptions');
+	writer:write('return CombatTextOptions\n');
 	writer:close()
 end
 
@@ -161,14 +175,15 @@ CombatText.Fn.loadSettings = function()
 	CombatText.FloatingDamage = CombatText.Fn.mergeCfgData(CombatText.FloatingDamage, localCfgData.FloatingDamage);
 end
 
-function onGameBoot()
+function onHandleSettings()
 	-- create backup of default
-	--CombatText.defaultCfg.HealthBar = CombatText.Fn.mergeCfgData(CombatText.defaultCfg.HealthBar, CombatText.HealthBar);
-	--CombatText.defaultCfg.CurrentTotalHp = CombatText.Fn.mergeCfgData(CombatText.defaultCfg.CurrentTotalHp, CombatText.CurrentTotalHp);
-	--CombatText.defaultCfg.FloatingDamage = CombatText.Fn.mergeCfgData(CombatText.defaultCfg.FloatingDamage, CombatText.FloatingDamage);
+	if CombatTextDefault.HealthBar == nil then CombatTextDefault.HealthBar = CombatText.Fn.copyCfgData(CombatText.HealthBar); end
+	if CombatTextDefault.CurrentTotalHp == nil then CombatTextDefault.CurrentTotalHp = CombatText.Fn.copyCfgData(CombatText.CurrentTotalHp); end
+	if CombatTextDefault.FloatingDamage == nil then CombatTextDefault.FloatingDamage = CombatText.Fn.copyCfgData(CombatText.FloatingDamage); end
 
 	-- load config
-	--CombatText.Fn.loadSettings()
+	CombatText.Fn.loadSettings()
 end
 
---Events.OnGameBoot.Add(onGameBoot)
+Events.OnResetLua.Add(onHandleSettings)
+Events.OnMainMenuEnter.Add(onHandleSettings)
