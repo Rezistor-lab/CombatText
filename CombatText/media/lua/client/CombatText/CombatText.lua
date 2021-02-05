@@ -1,11 +1,10 @@
-require ("CombatTextBase.lua")
-require ("CombatTextCache.lua")
-require ("ISHealthBarManager.lua")
-
 --- get in-game timestamp in miliseconds
 local function getGameTimestamp()
 	return getGameTime():getCalender():getTimeInMillis()
 end
+
+local isClient = isClient;
+local isServer = isServer;
 
 --- check if attack was critical hit (always false in case of B40)
 -- @entity attacker
@@ -15,19 +14,37 @@ local function isCriticalHit(entity)
 	end
 end
 
+local function isNPC(entity)
+	if luautils.stringStarts(CombatText.gameVersion, "40") then return false
+	elseif luautils.stringStarts(CombatText.gameVersion, "41") then return entity:getIsNPC()
+	end
+end
+
+local function getHp(entity)
+	local hpNow = entity:getHealth() * 100.0F;
+	if entity:getObjectName() == "Player" then
+		hpNow = entity:getBodyDamage():getHealth()
+	end
+	return hpNow;
+end
+
 --IsoGameCharacter attacker
 --IsoGameCharacter target
 --HandWeapon weapon
 --Float damage split => not actual damage dealt (it is potential weapon dmg, this value is later processed into actual damage)
 function onHit(attacker, target, weapon, damage)
 	-- only if player attacked zombie
-	if (target:getObjectName() == "Zombie" and attacker:getObjectName() == "Player") then
+	if ((target:getObjectName() == "Zombie" and attacker:getObjectName() == "Player") or 
+		(target:getObjectName() == "Player" and isNPC(target) and attacker:getObjectName() == "Player")) then
 		local uid = CombatText.Fn.getEntityId(target)
 		local trackingItm = CombatTextCache.TrackingList[uid];
 
 		local isCrit = isCriticalHit(attacker);
 		if trackingItm == nil then
-			CombatTextCache.TrackingList[uid] = { fullHp = target:getHealth(), hp = target:getHealth(), isDead = target:isDead(), entity = target, isOnFire = false, weapon = weapon, isCrit = isCrit, tick = getGameTimestamp() }
+			CombatTextCache.TrackingList[uid] = { 
+				fullHp = getHp(target), hp = getHp(target), isDead = target:isDead(), entity = target, 
+				isOnFire = false, isBleeding = false, weapon = weapon, isCrit = isCrit, tick = getGameTimestamp() 
+			}
 			CombatTextCache.TrackingListCount = CombatTextCache.TrackingListCount+1
 			trackingItm = CombatTextCache.TrackingList[uid];
 		else
@@ -37,7 +54,7 @@ function onHit(attacker, target, weapon, damage)
 		end
 		
 		for i,v in pairs(CombatTextCache.HealthBarManagers) do
-			if v ~= nil then v:onHit(uid, isCrit, weapon, trackingItm) end
+			if v ~= nil then v:onHit(uid, weapon, isCrit, trackingItm) end
 		end
 	end
 end
@@ -51,7 +68,10 @@ function onZombieUpdate(zombie)
 	if zombie:isOnFire() then
 		if trackingItm == nil then
 			if zombie:getHealth() > 0 then
-				CombatTextCache.TrackingList[uid] = { fullHp = zombie:getHealth(), hp = zombie:getHealth(), isDead = zombie:isDead(), entity = zombie, isOnFire = true, weapon = nil, isCrit = nil, tick=getGameTimestamp() }
+				CombatTextCache.TrackingList[uid] = { 
+					fullHp = zombie:getHealth(), hp = zombie:getHealth(), isDead = zombie:isDead(), entity = zombie, 
+					isOnFire = true, isBleeding = false, weapon = nil, isCrit = nil, tick=getGameTimestamp() 
+				}
 				CombatTextCache.TrackingListCount = CombatTextCache.TrackingListCount+1
 			end
 		elseif trackingItm.isOnFire ~= true then
@@ -63,22 +83,24 @@ function onZombieUpdate(zombie)
 end
 
 function onCreatePlayer(idx, player)
-	-- remove if same manager is store => possible after rejoin 
-	if CombatTextCache.HealthBarManagers[idx] ~= nil then
-		CombatTextCache.HealthBarManagers[idx]:removeFromUIManager();
-		CombatTextCache.HealthBarManagers[idx] = nil;
+	if isNPC(player) == false then
+		-- remove if same manager is store => possible after rejoin 
+		if CombatTextCache.HealthBarManagers[idx] ~= nil then
+			CombatTextCache.HealthBarManagers[idx]:removeFromUIManager();
+			CombatTextCache.HealthBarManagers[idx] = nil;
+		end
+		
+		-- update existing
+		for i,v in pairs(CombatTextCache.HealthBarManagers) do
+			if v ~= nil then v:onNewPlayer() end
+		end
+		
+		-- add new player
+		CombatTextCache.HealthBarManagers[idx] = ISHealthBarManager:new(idx, player);
+		CombatTextCache.HealthBarManagers[idx]:initialize();
+		CombatTextCache.HealthBarManagers[idx]:instantiate();
+		CombatTextCache.HealthBarManagers[idx]:addToUIManager();
 	end
-	
-	-- update existing
-	for i,v in pairs(CombatTextCache.HealthBarManagers) do
-		if v ~= nil then v:onNewPlayer() end
-	end
-	
-	-- add new player
-	CombatTextCache.HealthBarManagers[idx] = ISHealthBarManager:new(idx, player);
-	CombatTextCache.HealthBarManagers[idx]:initialize();
-	CombatTextCache.HealthBarManagers[idx]:instantiate();
-	CombatTextCache.HealthBarManagers[idx]:addToUIManager();
 end
 
 function onZombieDead(zombie)
@@ -89,6 +111,38 @@ function onZombieDead(zombie)
 	end
 end
 
+function onPlayerDead(player)
+	if isNPC(player) then
+		local uid = CombatText.Fn.getEntityId(player)
+		-- update existing
+		for i,v in pairs(CombatTextCache.HealthBarManagers) do
+			if v ~= nil then v:onZombieDead(uid, player:isOnFire()) end
+		end
+	end
+end
+
+function onPlayerUpdate(player)
+	if isNPC(player) then
+		local uid = CombatText.Fn.getEntityId(player)
+		local trackingItm = CombatTextCache.TrackingList[uid];
+		local isBleeding = player:getBodyDamage():getNumPartsBleeding() > 0;
+		
+		if isBleeding then
+			if trackingItm == nil then
+				CombatTextCache.TrackingList[uid] = { 
+					fullHp = getHp(player), hp = getHp(player), isDead = player:isDead(), entity = player, 
+					isOnFire = false, isBleeding = true, weapon = nil, isCrit = nil, tick=getGameTimestamp() 
+				}
+				CombatTextCache.TrackingListCount = CombatTextCache.TrackingListCount+1
+			elseif trackingItm.isBleeding ~= true then
+				trackingItm.isBleeding = true;
+			end
+		elseif trackingItm ~= nil and trackingItm.isBleeding then
+			trackingItm.isBleeding = false;
+		end
+	end
+end
+
 -- splitscreen support
 Events.OnCreatePlayer.Add(onCreatePlayer);
 
@@ -96,4 +150,5 @@ Events.OnCreatePlayer.Add(onCreatePlayer);
 Events.OnWeaponHitCharacter.Add(onHit); -- mark target for tracking and show health bar
 Events.OnZombieUpdate.Add(onZombieUpdate); -- serves mainly to detect zombies on fire
 Events.OnZombieDead.Add(onZombieDead);
-
+Events.OnCharacterDeath.Add(onPlayerDead);
+Events.OnPlayerUpdate.Add(onPlayerUpdate);

@@ -1,7 +1,3 @@
-require ("CombatTextBase.lua")
-require ("CombatTextCache.lua")
-require ("luautils.lua")
-
 ISHealthBarManager = ISUIElement:derive("ISHealthBarManager")
 
 --************************************************************************--
@@ -44,21 +40,23 @@ local utils = {
 
 --- get string representation of damage
 utils.damageDiff = function(currentHp, previousHp)
-	local delta = (currentHp - previousHp)*100.0F
+	local delta = (currentHp - previousHp)
 	local diff = ""
 	
-	if utils.abs(delta) < 5 then
-		diff = tostring(utils.round(delta,2))
+	if utils.abs(delta) < 0.01 then
+		return nil;
+	elseif utils.abs(delta) < 5 then
+		diff = tostring(utils.round(delta,2));
 	elseif utils.abs(delta) < 10 then
-		diff = tostring(utils.round(delta,1))
+		diff = tostring(utils.round(delta,1));
 	else
-		diff = tostring(utils.round(delta,0))
+		diff = tostring(utils.round(delta,0));
 	end
 	
 	if currentHp > previousHp then 
-		return "+"..diff 
+		return "+"..diff;
 	else
-		return diff
+		return diff;
 	end
 end
 
@@ -82,12 +80,12 @@ utils.playerColor = function(playerIndex)
 	return {r=1,g=0,b=1}
 end
 
-utils.calculateLossStep = function(loss)
-	if loss <= 0.05 then return 0.03 end
-	if loss <= 0.15 then return 0.07 end
-	if loss <= 0.25 then return 0.15 end
-	if loss <= 0.4 then return 0.25 end
-	return utils.min(0.35, loss)
+utils.calculateHpStep = function(hpChange)
+	if hpChange <= 5 then return 3 end
+	if hpChange <= 15 then return 7 end
+	if hpChange <= 25 then return 15 end
+	if hpChange <= 4 then return 25 end
+	return utils.min(35, hpChange)
 end
 
 utils.countDamages = function(_self)
@@ -147,6 +145,13 @@ utils.getTotalHpTextOffset = function(barItm, position, _self, zScrX, zScrY, tw,
 	return txtLeft, txtTop
 end
 
+utils.getEntityHealth = function(entity)
+	if entity:getObjectName() == "Player" then
+		return entity:getBodyDamage():getHealth()
+	end
+	return entity:getHealth() * 100.0F;
+end
+
 --************************************************************************--
 --** debug render functions
 --************************************************************************--
@@ -194,7 +199,7 @@ debugRender.healthBar = function(_self, startX, startY, bv, gameTick)
 	_self:drawTextCentre('dist:'..tostring(utils.round(dist,2)), zScrX-2,zScrY-2, _self.color.r, _self.color.g, _self.color.b, 1, UIFont.Small);
 	_self:drawLine2(zScrX, zScrY, pIsoX, pIsoY, 1, _self.color.r, _self.color.g, _self.color.b)
 	
-	_self:drawText('health bar:'..tostring(round(bv.maxHp*100, 0))..'/'..tostring(utils.round(bv.currentHp*100,0))..' lossing health:'..tostring(bv.isLoosingHp)..' health loss:'..tostring(utils.round(bv.hpLoss, 2))..' isDead:'..tostring(bv.isDead)..' dist:'..tostring(utils.round(dist,2))..' toRemove:'..tostring(dist > CombatText.HealthBar.HideWhenInactive.distanceMoreThan), startX, startY, _self.color.r, _self.color.g, _self.color.b, 1, _self.hpTextFont)
+	_self:drawText('health bar:'..tostring(round(bv.maxHp, 2))..'/'..tostring(utils.round(bv.currentHp,2))..' lossing health:'..tostring(bv.isChangingHp)..' health loss:'..tostring(utils.round(bv.hpChange, 2))..' isDead:'..tostring(bv.isDead)..' dist:'..tostring(utils.round(dist,2))..' toRemove:'..tostring(dist > CombatText.HealthBar.HideWhenInactive.distanceMoreThan), startX, startY, _self.color.r, _self.color.g, _self.color.b, 1, _self.hpTextFont)
 	startY = startY + _self.hpFontHeight+2;
 	_self:drawText('hp text:'..bv.Position..' zoom:'..tostring(_self.renderData.zoom)..' fontZoom:'..tostring(_self.renderData.fontZoom), startX, startY, _self.color.r, _self.color.g, _self.color.b, 1, _self.hpTextFont)
 	startY = startY + _self.hpFontHeight+2;
@@ -305,19 +310,19 @@ end
 local function updateHealthBarHp(item, hp)
 	if item.isDead ~= true then
 		if hp ~= item.currentHp then
-			if hp < item.currentHp then		
-				if item.isLoosingHp then
-					item.hpLoss = item.hpLoss + (item.currentHp - utils.max(0, hp));
+			if hp < item.currentHp or hp > item.currentHp then		
+				if item.isChangingHp then
+					item.hpChange = item.hpChange + (item.currentHp - utils.max(0, hp));
 				else
-					item.hpLoss = item.currentHp - utils.max(0, hp);
-					item.hpLossStart = tms()
-					item.isLoosingHp = true
+					item.hpChange = item.currentHp - utils.max(0, hp);
+					item.hpChangeStart = tms()
+					item.isChangingHp = true
 				end
-			else
-				item.maxHp = hp;
 			end
+			if hp > item.maxHp then item.maxHp = hp; end
+			
 			item.currentHp = utils.max(0, hp);
-			item.hpText = tostring(utils.round(item.currentHp*100.0F,0))..'/'..tostring(utils.round(item.maxHp*100.0F,0))
+			item.hpText = tostring(utils.round(item.currentHp,0))..'/'..tostring(utils.round(item.maxHp,0))
 			item.hpTextWidth = utils.measureStringX(item.hpTextFont, item.hpText);
 			item.hpTextHeight = utils.measureStringY(item.hpTextFont, item.hpText)
 		end
@@ -345,12 +350,12 @@ local function removeAll(_self, uid, isDead)
 end
 
 local function addBar(_self, uid, entity, weapon, isCrit)
-	local hp = entity:getHealth();
-	local hpText = tostring(round(hp*100.0F,0))..'/'..tostring(round(hp*100.0F,0));
+	local hp = utils.getEntityHealth(entity);
+	local hpText = tostring(round(hp,0))..'/'..tostring(round(hp,0));
 	local position = _self.CurrentTotalHp.Position
 	
 	_self.barList[uid] = {
-		hpLoss = 0, currentHp = hp, entity = entity, isLoosingHp = false, hpLossStart = nil, maxHp = hp,
+		hpChange = 0, currentHp = hp, entity = entity, isChangingHp = false, hpChangeStart = nil, maxHp = hp,
 		hpText = hpText, diedTimestamp = nil, isDead = false, hpTextFont = _self.hpTextFont,
 		playerAlpha = utils.getAlpha(entity, _self.playerIndex), weapon = weapon, isCrit = isCrit, 
 		hpTextWidth = utils.measureStringX(_self.hpTextFont, hpText),
@@ -360,7 +365,7 @@ local function addBar(_self, uid, entity, weapon, isCrit)
 		Colors = _self.HealthBar.Colors, 
 		Padding = _self.HealthBar.Padding,
 		FadeOutAfter = _self.HealthBar.FadeOutAfter,
-		LoosingHpTick = _self.HealthBar.LoosingHpTick,
+		ChangingHpTick = _self.HealthBar.LoosingHpTick,
 		
 		Position = position,
 		HpTotalColor = _self.CurrentTotalHp.Color
@@ -439,18 +444,17 @@ local function renderHealthBar(_self, barItm, tick, hpBar, totalHp)
 	if hpBar and totalHp and _self.renderData.totalHpVisible and barItm.shiftBar then zScrY = zScrY - _self.renderData.height - barItm.Padding; end
 	
 	if hpBar then
-	
-		if barItm.isLoosingHp then
-			local lossStep = utils.calculateLossStep(barItm.hpLoss)
-			local tickDiff = (tick - barItm.hpLossStart)
-			local loosingHpTick = (tickDiff/barItm.LoosingHpTick)
-			local frameDiff = barItm.maxHp * lossStep * loosingHpTick
-			barItm.hpLoss = utils.max(0, barItm.hpLoss - frameDiff);
-			barItm.hpLossStart = tick
+		if barItm.isChangingHp then
+			local changeStep = utils.calculateHpStep(barItm.hpChange)
+			local tickDiff = (tick - barItm.hpChangeStart)
+			local changingHpTick = (tickDiff/barItm.ChangingHpTick)
+			local frameDiff = barItm.maxHp * changeStep * changingHpTick
+			barItm.hpChange = utils.max(0, barItm.hpChange - frameDiff);
+			barItm.hpChangeStart = tick
 			
-			if barItm.hpLoss <= 0 then
-				barItm.hpLoss = 0;
-				barItm.isLoosingHp = false;
+			if barItm.hpChange <= 0 then
+				barItm.hpChange = 0;
+				barItm.isChangingHp = false;
 			end
 		end
 		
@@ -464,10 +468,10 @@ local function renderHealthBar(_self, barItm, tick, hpBar, totalHp)
 		_self:drawRect(minusWidthHalf, zScrY, nowHpWidth, _self.renderData.height, 
 			barItm.Colors.CurrentHealth.a*barItm.playerAlpha, barItm.Colors.CurrentHealth.r, barItm.Colors.CurrentHealth.g, barItm.Colors.CurrentHealth.b)
 			
-		if barItm.isLoosingHp then
-			--_self.javaObject:DrawTextureScaledCol(nil, minusWidthHalf+nowHpWidth, zScrY, ((barItm.hpLoss / barItm.maxHp) * _self.renderData.width), _self.renderData.height, 
+		if barItm.isChangingHp then
+			--_self.javaObject:DrawTextureScaledCol(nil, minusWidthHalf+nowHpWidth, zScrY, ((barItm.hpChange / barItm.maxHp) * _self.renderData.width), _self.renderData.height, 
 			--	barItm.Colors.LoosingHealth.r, barItm.Colors.LoosingHealth.g, barItm.Colors.LoosingHealth.b, barItm.Colors.LoosingHealth.a*barItm.playerAlpha);
-			_self:drawRect(minusWidthHalf+nowHpWidth, zScrY, ((barItm.hpLoss / barItm.maxHp) * _self.renderData.width), _self.renderData.height, 
+			_self:drawRect(minusWidthHalf+nowHpWidth, zScrY, ((barItm.hpChange / barItm.maxHp) * _self.renderData.width), _self.renderData.height, 
 				barItm.Colors.LoosingHealth.a*barItm.playerAlpha, barItm.Colors.LoosingHealth.r, barItm.Colors.LoosingHealth.g, barItm.Colors.LoosingHealth.b)
 		end
 		
@@ -529,9 +533,11 @@ function ISHealthBarManager:onZombieDead(uid, isOnFire)
 	if self.barList[uid] ~= nil and self.FloatingDamage.Visible then
 		local itm = self.barList[uid];
 		local diff = utils.damageDiff(0, itm.currentHp)
-		local wasCrit = itm.isCrit ~= nil and itm.isCrit == true;
-		local color = utils.getDamageColor(self.FloatingDamage, 0, itm.currentHp, isOnFire and itm.weapon == nil, wasCrit);
-		addDmg(self, uid, diff, color, wasCrit, itm.entity);
+		if diff ~= nil then		
+			local wasCrit = itm.isCrit ~= nil and itm.isCrit == true;
+			local color = utils.getDamageColor(self.FloatingDamage, 0, itm.currentHp, isOnFire and itm.weapon == nil, wasCrit);
+			addDmg(self, uid, diff, color, wasCrit, itm.entity);
+		end
 	end
 
 	removeAll(self, uid, true);
@@ -608,6 +614,7 @@ function ISHealthBarManager:update()
 		local gameTick = tms();
 		local playerX = self.player:getX();
 		local playerY = self.player:getY();
+		local cch = cache;
 		
 		for uid, itm in pairs(cache.TrackingList) do 
 			if itm then
@@ -622,8 +629,13 @@ function ISHealthBarManager:update()
 				if barItm ~= nil then
 					-- check if tracked zombie received damage
 					barItm.isDead = barItm.entity:isDead();
-					if (((itm.isOnFire and itm.tick + self.FloatingDamage.FireDmgUpdate < tick) or itm.isOnFire == false) or barItm.isDead) then
-						local hpNow = barItm.entity:getHealth();
+					
+					if (((itm.isOnFire and itm.tick + self.FloatingDamage.FireDmgUpdate < tick) or 
+						 (itm.isBleeding and itm.tick + self.FloatingDamage.FireDmgUpdate < tick) or 
+						 (itm.isOnFire == false and itm.isBleeding == false) or (itm.weapon ~= nil)
+						) or barItm.isDead) then
+						local hpNow = utils.getEntityHealth(barItm.entity);
+
 						if hpNow ~= barItm.currentHp then
 							if hpNow < 0 then
 								isDead = true;
@@ -637,19 +649,21 @@ function ISHealthBarManager:update()
 							if itm.hp ~= hpNow then itm.hp = hpNow; end
 							itm.tick = tick
 							
-							if (self.HealthBar.Visible or self..CurrentTotalHp.Visible) then
+							if (self.HealthBar.Visible or self.CurrentTotalHp.Visible) then
 								updateHealthBarHp(barItm, hpNow);
 							end
-							
+
 							-- add floating damage only for non-dead zombies, finishing blow is handled in separate event
-							if self.FloatingDamage.Visible and barItm.isDead == false then
+							if diff ~= nil and self.FloatingDamage.Visible and barItm.isDead == false then
 								addDmg(self, uid, diff, color, wasCrit, barItm.entity);
 							end
 						end
 					end
 					
-					barItm.weapon = nil;
-					barItm.isCrit = nil;
+					if barItm.weapon ~= nil or barItm.isCrit ~= nil then
+						barItm.weapon = nil;
+						barItm.isCrit = nil;
+					end
 					
 					-- try to check remove condition for bar
 					if barItm.isDead or (itm.tick+self.HealthBar.HideWhenInactive.noDamageFor < tick) then
@@ -658,9 +672,10 @@ function ISHealthBarManager:update()
 				end
 				
 				if itm ~= nil then
-					itm.weapon=nil;
-					itm.isCrit=nil;
-				
+					if itm.weapon ~= nil or itm.isCrit ~= nil then
+						itm.weapon=nil;
+						itm.isCrit=nil;
+					end
 					-- second removal check
 					if itm.entity:isDead() or (itm.tick+self.HealthBar.HideWhenInactive.noDamageFor < tick) then
 						removeAll(self, uid, itm.entity:isDead());
@@ -672,7 +687,7 @@ function ISHealthBarManager:update()
 		
 		for uid, itm in pairs(self.barList) do
 			if itm.isDead then 
-				if itm.hpLoss == 0 and itm.currentHp == 0 and (itm.diedTimestamp + itm.FadeOutAfter < gameTick) then 
+				if itm.hpChange == 0 and itm.currentHp == 0 and (itm.diedTimestamp + itm.FadeOutAfter < gameTick) then 
 					self.barList[uid] = nil; 
 				end
 			else
@@ -764,6 +779,8 @@ function ISHealthBarManager:new(playerIndex, player)
 	o.debug = CombatText.debug;
 	
 	o:setCapture(false);
+	
+	print('CT - ISHealthBarManager created')
 	
     return o;
 end

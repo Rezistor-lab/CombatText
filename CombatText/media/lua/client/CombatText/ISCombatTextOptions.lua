@@ -1,8 +1,3 @@
-require ("CombatTextBase.lua")
-require ("HorizontalLine")
-require ("ISLabel")
-require ("ISButton")
-
 local FONT_HGT_SMALL = getTextManager():getFontHeight(UIFont.Small)
 local FONT_HGT_MEDIUM = getTextManager():getFontHeight(UIFont.Medium)
 local ALL_FONT_LIST = {'Small', 'Medium', 'Large', 'Massive', 'MainMenu1', 'MainMenu2', 'Cred1', 'Cred2', 'NewSmall', 'NewMedium', 'NewLarge', 'Code', 'MediumNew', 'AutoNormSmall', 'AutoNormMedium', 'AutoNormLarge', 'Dialogue', 'Intro', 'Handwritten', 'DebugConsole', 'Title'}
