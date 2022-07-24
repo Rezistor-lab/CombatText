@@ -360,6 +360,7 @@ function OptionsProtected(_self)
 		---- HealthBar ----
 		_self:addHLineWithName('HealthBar');
 		_self:addCheckBox(splitpoint, 0, comboWidth, 20, 'HealthBar_Visible');
+		_self:addCheckBox(splitpoint, 0, comboWidth, 20, 'HealthBar_ShowOnSurviors');
 		_self:addSlider(splitpoint, 0, comboWidth, 20, 'HealthBar_Width', 25, 125, 5);
 		_self:addSlider(splitpoint, 0, comboWidth, 20, 'HealthBar_Height', 1, 25, 1);
 		_self:addSlider(splitpoint, 0, comboWidth, 20, 'HealthBar_YOffset', 50, 250, 5);
@@ -377,6 +378,7 @@ function OptionsProtected(_self)
 		_self.addY = _self.addY+20;
 		_self:addHLineWithName('FloatingDamage');
 		_self:addCheckBox(splitpoint, 0, comboWidth, 20, 'FloatingDamage_Visible');
+		_self:addCheckBox(splitpoint, 0, comboWidth, 20, 'FloatingDamage_ShowFireDamage');
 		_self:addSlider(splitpoint, 0, comboWidth, 20, 'FloatingDamage_Ttl', 500, 5000, 100);
 		_self:addSlider(splitpoint, 0, comboWidth, 20, 'FloatingDamage_Speed', 25, 125, 5);
 		_self:addSlider(splitpoint, 0, comboWidth, 20, 'FloatingDamage_FireDmgUpdate', 1000, 10000, 100);
@@ -405,6 +407,9 @@ end
 
 function SaveProtected(_self)
 	CombatText.Fn.saveSettings();
+	for i,v in pairs(CombatTextCache.HealthBarManagers) do
+		if v ~= nil then v:onSettingsChange() end
+	end
 end
 
 function MainOptions:create()

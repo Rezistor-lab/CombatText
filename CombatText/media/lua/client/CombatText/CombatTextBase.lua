@@ -31,7 +31,8 @@ CombatText = {
 		HideWhenInactive = {
 			distanceMoreThan = 20,
 			noDamageFor = 10*60*1000 --ingame time in ms
-		}
+		},
+		ShowOnSurviors = true
 	},
 	CurrentTotalHp = {
 		Visible = false,
@@ -49,6 +50,7 @@ CombatText = {
 		Ttl = 2000,
 		Speed = 75.0F,
 		FireDmgUpdate = 5000,
+		ShowFireDamage = true,
 		NormalFont = "Medium",
 		CritFont = "Large",
 		RgbMinus = {r=1.0, g=0.4, b=0.4, a=1.0},

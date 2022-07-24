@@ -3,9 +3,6 @@ local function getGameTimestamp()
 	return getGameTime():getCalender():getTimeInMillis()
 end
 
-local isClient = isClient;
-local isServer = isServer;
-
 --- check if attack was critical hit (always false in case of B40)
 -- @entity attacker
 local function isCriticalHit(entity)
@@ -35,7 +32,7 @@ end
 function onHit(attacker, target, weapon, damage)
 	-- only if player attacked zombie
 	if ((target:getObjectName() == "Zombie" and attacker:getObjectName() == "Player") or 
-		(target:getObjectName() == "Player" and isNPC(target) and attacker:getObjectName() == "Player")) then
+		(target:getObjectName() == "Player" and isNPC(target) and attacker:getObjectName() == "Player" and CombatText.HealthBar.ShowOnSurviors)) then
 		local uid = CombatText.Fn.getEntityId(target)
 		local trackingItm = CombatTextCache.TrackingList[uid];
 
@@ -65,7 +62,7 @@ function onZombieUpdate(zombie)
 	local trackingItm = CombatTextCache.TrackingList[uid];
 	
 	-- solve on fire problem
-	if zombie:isOnFire() then
+	if zombie:isOnFire() and CombatText.FloatingDamage.ShowFireDamage then
 		if trackingItm == nil then
 			if zombie:getHealth() > 0 then
 				CombatTextCache.TrackingList[uid] = { 
@@ -79,6 +76,13 @@ function onZombieUpdate(zombie)
 		end
 	elseif trackingItm ~= nil and trackingItm.isOnFire then
 		trackingItm.isOnFire = false
+	end
+	
+	if trackingItm ~= nil and (zombie:isDead() == true or zombie:getHealth() <= 0.0f) then
+		-- update existing
+		for i,v in pairs(CombatTextCache.HealthBarManagers) do
+			if v ~= nil then v:onZombieDead(uid, zombie:isOnFire()) end
+		end
 	end
 end
 
@@ -112,7 +116,7 @@ function onZombieDead(zombie)
 end
 
 function onPlayerDead(player)
-	if isNPC(player) then
+	if isNPC(player) and CombatText.HealthBar.ShowOnSurviors then
 		local uid = CombatText.Fn.getEntityId(player)
 		-- update existing
 		for i,v in pairs(CombatTextCache.HealthBarManagers) do
@@ -122,7 +126,7 @@ function onPlayerDead(player)
 end
 
 function onPlayerUpdate(player)
-	if isNPC(player) then
+	if isNPC(player) and CombatText.HealthBar.ShowOnSurviors then
 		local uid = CombatText.Fn.getEntityId(player)
 		local trackingItm = CombatTextCache.TrackingList[uid];
 		local isBleeding = player:getBodyDamage():getNumPartsBleeding() > 0;
@@ -150,5 +154,9 @@ Events.OnCreatePlayer.Add(onCreatePlayer);
 Events.OnWeaponHitCharacter.Add(onHit); -- mark target for tracking and show health bar
 Events.OnZombieUpdate.Add(onZombieUpdate); -- serves mainly to detect zombies on fire
 Events.OnZombieDead.Add(onZombieDead);
-Events.OnCharacterDeath.Add(onPlayerDead);
+
+if luautils.stringStarts(getCore():getVersionNumber(), "41") then
+	Events.OnCharacterDeath.Add(onPlayerDead);
+end
+
 Events.OnPlayerUpdate.Add(onPlayerUpdate);
